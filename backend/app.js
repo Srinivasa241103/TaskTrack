@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import path from "path";
+import { fileURLToPath } from "url";
+
 
 import healthRoutes from "./src/routes/healthRoutes.js";
 import userRoutes from "./src/routes/authRoutes.js";
@@ -23,6 +26,21 @@ app.use("/api/v1/auth", userRoutes);
 app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/users", usersRoutes);
 app.use("/api/v1/tasks", taskRoutes);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+if (process.env.NODE_ENV === "production") {
+    const frontendDist = path.join(__dirname, "../frontend/dist");
+    app.use(express.static(frontendDist));
+    
+    app.get("*", (req, res) => {
+        if (req.originalUrl.startsWith("/api")) {
+            return res.status(404).json({ success: false, message: "Route not found" });
+        }
+        res.sendFile(path.join(frontendDist, "index.html"));
+    });
+}
 
 app.use((req, res) => {
     res.status(404).json({ success: false, message: "Route not found" });
