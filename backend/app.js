@@ -15,8 +15,13 @@ import dashboardRoutes from "./src/routes/dashboardRoute.js";
 const app = express();
 
 app.use(cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: [
+        "http://localhost:5173",
+        "https://tasktrack-production-73ea.up.railway.app"
+    ],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
