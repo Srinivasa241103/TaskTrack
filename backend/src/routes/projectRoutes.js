@@ -8,5 +8,6 @@ const router = Router();
 router.get("/", authMiddleware, projects.getProjects);
 router.post("/", authMiddleware, projects.createProject);
 router.post("/:id/members", authMiddleware, projects.addMember);
+router.delete("/:id/member", authMiddleware, projects.removeMember);
 
 export default router;

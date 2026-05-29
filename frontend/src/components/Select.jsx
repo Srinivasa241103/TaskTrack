@@ -15,6 +15,7 @@ export function Select({ value, onChange, options, renderValue }) {
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         className="field__control"
         style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: 'var(--surface)' }}
@@ -33,6 +34,7 @@ export function Select({ value, onChange, options, renderValue }) {
           {options.map((o) => (
             <button
               key={o.value}
+              type="button"
               onClick={() => { onChange(o.value); setOpen(false); }}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 8,

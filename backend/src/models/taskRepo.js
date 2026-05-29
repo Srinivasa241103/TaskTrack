@@ -206,4 +206,14 @@ export default class TaskRepository {
             [data.taskId, data.userId, data.action, data.content, data.details || null]
         );
     }
+
+    async getUserTaskByStatus(userId) {
+        const result = await pool.query(`
+            SELECT t.status, COUNT(*)::int AS count
+            FROM tasks t
+            JOIN project_members pm ON pm.project_id = t.project_id AND pm.user_id = $1
+            GROUP BY t.status
+        `, [userId]);
+        return result.rows;
+    }
 }

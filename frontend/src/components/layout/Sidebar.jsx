@@ -1,7 +1,7 @@
 import { Icon } from '../Icons.jsx';
 
-export function Sidebar({ route, setRoute, isAdmin, onLogout, projects = [] }) {
-  const NavItem = ({ id, icon, label, badge, group, onClick }) => {
+export function Sidebar({ route, setRoute, onLogout, projects = [] }) {
+  const NavItem = ({ id, icon, label, group, onClick }) => {
     const active = route === id || (group && route.startsWith(group));
     return (
       <button
@@ -10,7 +10,6 @@ export function Sidebar({ route, setRoute, isAdmin, onLogout, projects = [] }) {
       >
         {icon}
         <span>{label}</span>
-        {badge != null && <span className="sidebar__badge">{badge}</span>}
       </button>
     );
   };
@@ -19,27 +18,19 @@ export function Sidebar({ route, setRoute, isAdmin, onLogout, projects = [] }) {
     <aside className="sidebar">
       <div className="sidebar__brand">
         <span className="sidebar__brand-mark" />
-        <span>Plot</span>
+        <span>TaskTrack</span>
       </div>
 
       <div className="sidebar__section">
         <NavItem id="dashboard" icon={<Icon.Dashboard />} label="Dashboard" />
         <NavItem id="projects"  icon={<Icon.Projects />}  label="Projects" group="project" />
         <NavItem id="tasks"     icon={<Icon.Tasks />}     label="My Tasks" />
-        <NavItem id="inbox"     icon={<Icon.Inbox />}     label="Inbox" />
       </div>
-
-      {isAdmin && (
-        <div className="sidebar__section">
-          <div className="sidebar__section-label">Admin</div>
-          <NavItem id="users" icon={<Icon.Users />} label="User Management" />
-        </div>
-      )}
 
       {projects.length > 0 && (
         <div className="sidebar__section">
           <div className="sidebar__section-label">Projects</div>
-          {projects.slice(0, 4).map((p) => (
+          {projects.slice(0, 6).map((p) => (
             <button
               key={p.id}
               className={`sidebar__item${route === `project:${p.id}` ? ' sidebar__item--active' : ''}`}
@@ -53,8 +44,8 @@ export function Sidebar({ route, setRoute, isAdmin, onLogout, projects = [] }) {
       )}
 
       <div className="sidebar__bottom">
-        <NavItem id="settings" icon={<Icon.Settings />} label="Settings" />
-        <NavItem id="logout"   icon={<Icon.Logout />}   label="Logout" onClick={onLogout} />
+        <NavItem id="profile" icon={<Icon.Users />}  label="Account" />
+        <NavItem id="logout"  icon={<Icon.Logout />} label="Logout" onClick={onLogout} />
       </div>
     </aside>
   );

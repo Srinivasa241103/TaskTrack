@@ -25,20 +25,21 @@ export const api = {
     register: (name, email, password) => request('POST', '/auth/register', { name, email, password }),
   },
   projects: {
-    list:      ()              => request('GET',  '/projects'),
-    get:       (id)            => request('GET',  `/projects/${id}`),
-    create:    (data)          => request('POST', '/projects', data),
-    addMember: (projectId, userId) => request('POST', `/projects/${projectId}/members`, { userId }),
+    list:         ()               => request('GET', '/projects'),
+    create:       (data)           => request('POST', '/projects', data),
+    addMember:    (projectId, userId) => request('POST', `/projects/${projectId}/members`, { userId }),
+    removeMember: (projectId, userId) => request('DELETE', `/projects/${projectId}/member`, { userId }),
   },
   tasks: {
-    list:   ()         => request('GET',    '/tasks'),
-    get:    (id)       => request('GET',    `/tasks/${id}`),
-    create: (data)     => request('POST',   '/tasks', data),
-    update: (id, data) => request('PUT',    `/tasks/${id}`, data),
+    list:   ()         => request('GET', '/tasks'),
+    create: (data)     => request('POST', '/tasks', data),
+    update: (id, data) => request('PUT', `/tasks/${id}`, data),
     delete: (id)       => request('DELETE', `/tasks/${id}`),
   },
   users: {
-    list: ()   => request('GET', '/users'),
-    get:  (id) => request('GET', `/users/${id}`),
+    list: () => request('GET', '/users'),
+  },
+  dashboard: {
+    get: () => request('GET', '/dashboard'),
   },
 };

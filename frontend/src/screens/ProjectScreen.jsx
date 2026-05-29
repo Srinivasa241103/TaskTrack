@@ -2,7 +2,6 @@ import React from 'react';
 import { Icon } from '../components/Icons.jsx';
 import { Avatar } from '../components/Avatar.jsx';
 import { AvatarStack } from '../components/Avatar.jsx';
-import { Badge } from '../components/Badge.jsx';
 import { Button } from '../components/Button.jsx';
 import { PriorityIcon } from '../components/PriorityIcon.jsx';
 import { StatusBadge } from '../components/Badge.jsx';
@@ -16,9 +15,11 @@ const COLUMNS = [
   { key: 'done',        title: 'Done' },
 ];
 
-function MemberPicker({ users, memberIds, projectId, onAdd, onClose }) {
+const STATUS_ORDER = { todo: 0, in_progress: 1, done: 2 };
+
+function MemberPanel({ users, members, memberIds, ownerId, projectId, isAdmin, onAdd, onRemove, onClose }) {
   const [search, setSearch] = React.useState('');
-  const [adding, setAdding] = React.useState(null);
+  const [busy, setBusy]     = React.useState(null);
   const [error, setError]   = React.useState('');
   const ref = React.useRef(null);
 
@@ -29,122 +30,101 @@ function MemberPicker({ users, memberIds, projectId, onAdd, onClose }) {
   }, [onClose]);
 
   const filtered = users.filter((u) => {
+    if (memberIds.has(u.id)) return false;
     const q = search.toLowerCase();
-    return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    return u.name.toLowerCase().includes(q) || (u.email ?? '').toLowerCase().includes(q);
   });
 
   const handleAdd = async (user) => {
-    if (memberIds.has(user.id) || adding) return;
-    setError('');
-    setAdding(user.id);
+    if (busy) return;
+    setError(''); setBusy(user.id);
     try {
       const res = await api.projects.addMember(projectId, user.id);
       onAdd(res.data.member);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setAdding(null);
-    }
+    } catch (err) { setError(err.message); }
+    finally { setBusy(null); }
+  };
+
+  const handleRemove = async (userId) => {
+    if (busy) return;
+    setError(''); setBusy(userId);
+    try {
+      await api.projects.removeMember(projectId, userId);
+      onRemove(userId);
+    } catch (err) { setError(err.message); }
+    finally { setBusy(null); }
   };
 
   return (
-    <div
-      ref={ref}
-      style={{
-        position: 'absolute',
-        top: 'calc(100% + 6px)',
-        right: 0,
-        width: 288,
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-        zIndex: 200,
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <span style={{ position: 'absolute', left: 8, display: 'flex', color: 'var(--ink-4)' }}>
-            <Icon.Search />
-          </span>
-          <input
-            autoFocus
-            placeholder="Search members…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%', paddingLeft: 30, height: 32, fontSize: 13, boxSizing: 'border-box' }}
-          />
-        </div>
-      </div>
-
+    <div ref={ref} style={{
+      position: 'absolute', top: 'calc(100% + 6px)', right: 0, width: 300,
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+      zIndex: 200, overflow: 'hidden',
+    }}>
       {error && (
         <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--danger)', borderBottom: '1px solid var(--border)' }}>
           {error}
         </div>
       )}
 
-      <div style={{ maxHeight: 256, overflowY: 'auto' }}>
-        {filtered.length === 0 ? (
-          <div style={{ padding: '18px 12px', color: 'var(--ink-4)', fontSize: 13, textAlign: 'center' }}>
-            No users found
+      <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+        <div className="field__label" style={{ marginBottom: 6 }}>Members ({members.length})</div>
+        <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {members.map((u) => (
+            <div key={u.id} className="row gap-8" style={{ padding: '4px 2px' }}>
+              <Avatar user={u} size="sm" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: 'var(--ink-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</div>
+              </div>
+              {u.id === ownerId
+                ? <span className="small" style={{ color: 'var(--ink-4)' }}>Admin</span>
+                : isAdmin
+                  ? <button title="Remove member" disabled={!!busy} onClick={() => handleRemove(u.id)}
+                      style={{ background: 'transparent', border: 0, color: 'var(--ink-4)', cursor: 'pointer', padding: 2, display: 'flex' }}>
+                      <Icon.Close />
+                    </button>
+                  : <span className="small" style={{ color: 'var(--ink-4)', textTransform: 'capitalize' }}>{u.role ?? 'member'}</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div style={{ padding: '10px 12px' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <span style={{ position: 'absolute', left: 8, display: 'flex', color: 'var(--ink-4)' }}><Icon.Search /></span>
+            <input autoFocus placeholder="Add member…" value={search} onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '100%', paddingLeft: 30, height: 32, fontSize: 13, boxSizing: 'border-box' }} />
           </div>
-        ) : (
-          filtered.map((u) => {
-            const isMember = memberIds.has(u.id);
-            const isAdding = adding === u.id;
-            return (
-              <button
-                key={u.id}
-                onClick={() => handleAdd(u)}
-                disabled={isMember || !!adding}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '8px 12px',
-                  background: 'transparent',
-                  border: 0,
-                  cursor: isMember ? 'default' : 'pointer',
-                  textAlign: 'left',
-                  opacity: isMember ? 0.5 : 1,
-                  transition: 'background 0.1s',
-                }}
-                onMouseEnter={(e) => { if (!isMember && !adding) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-              >
+          <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 8 }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '14px 0', color: 'var(--ink-4)', fontSize: 13, textAlign: 'center' }}>No users to add</div>
+            ) : filtered.map((u) => (
+              <button key={u.id} onClick={() => handleAdd(u)} disabled={!!busy}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', background: 'transparent', border: 0, cursor: 'pointer', textAlign: 'left' }}>
                 <Avatar user={u} size="md" />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--ink-1)' }}>{u.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {u.email}
-                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
                 </div>
-                {isMember && (
-                  <span style={{ color: 'var(--primary)', display: 'flex', flexShrink: 0 }}>
-                    <Icon.Check />
-                  </span>
-                )}
-                {isAdding && (
-                  <span style={{ fontSize: 11, color: 'var(--ink-3)', flexShrink: 0 }}>Adding…</span>
-                )}
+                {busy === u.id && <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>…</span>}
               </button>
-            );
-          })
-        )}
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export function ProjectScreen({ projectId, tasks = [], setTasks, projects = [], users = [], openTask, isAdmin, onMemberAdded }) {
+export function ProjectScreen({ projectId, tasks = [], setTasks, projects = [], users = [], openTask, currentUserId, onMemberAdded, onMemberRemoved }) {
   const findProject = (id) => projects.find((p) => p.id === id);
   const findUser    = (id) => users.find((u) => u.id === id);
 
   const project = findProject(projectId);
-  const [view, setView]                 = React.useState('board');
-  const [showPicker, setShowPicker]     = React.useState(false);
+  const [view, setView]                     = React.useState('board');
+  const [showPanel, setShowPanel]           = React.useState(false);
   const [showCreateTask, setShowCreateTask] = React.useState(false);
 
   if (!project) {
@@ -161,8 +141,27 @@ export function ProjectScreen({ projectId, tasks = [], setTasks, projects = [], 
   }
 
   const projectTasks = tasks.filter((t) => t.projectId === projectId);
-  const members    = (project.members ?? []).map(findUser).filter(Boolean);
-  const memberIds  = new Set((project.members ?? []).map((m) => m.id));
+  const members      = (project.members ?? []).map((m) => findUser(m.id) ?? { ...m, color: m.avatarColor }).filter(Boolean);
+  const memberIds    = new Set((project.members ?? []).map((m) => m.id));
+  const isProjectAdmin = currentUserId === project.ownerId;
+  const ownerName    = project.ownerName ?? (project.members ?? []).find((m) => m.id === project.ownerId)?.name;
+
+  const moveTask = async (taskId, status) => {
+    const t = tasks.find((x) => x.id === taskId);
+    if (!t || t.status === status) return;
+    if (STATUS_ORDER[status] < STATUS_ORDER[t.status]) return;
+    const canEdit = currentUserId === project.ownerId || currentUserId === t.assignee;
+    if (!canEdit) return;
+    const snapshot = t;
+    setTasks((ts) => ts.map((x) => (x.id === taskId ? { ...x, status } : x)));
+    try {
+      const res = await api.tasks.update(taskId, { status });
+      const updated = res.data?.task;
+      if (updated) setTasks((ts) => ts.map((x) => (x.id === taskId ? updated : x)));
+    } catch {
+      setTasks((ts) => ts.map((x) => (x.id === taskId ? snapshot : x)));
+    }
+  };
 
   return (
     <>
@@ -180,28 +179,30 @@ export function ProjectScreen({ projectId, tasks = [], setTasks, projects = [], 
               </span>
               <div className="h1">{project.name}</div>
             </div>
-            <div className="page-header__meta" style={{ marginTop: 8 }}>{project.description}</div>
+            {project.description && <div className="page-header__meta" style={{ marginTop: 8 }}>{project.description}</div>}
+            {ownerName && <div className="small" style={{ color: 'var(--ink-3)', marginTop: 6 }}>Owner · {ownerName}</div>}
           </div>
           <div className="row gap-8" style={{ alignItems: 'center' }}>
             <AvatarStack users={members} max={5} />
-            {isAdmin && (
-              <div style={{ position: 'relative' }}>
-                <Button variant="ghost" size="sm" icon={<Icon.Plus />} onClick={() => setShowPicker((v) => !v)}>
-                  Add member
-                </Button>
-                {showPicker && (
-                  <MemberPicker
-                    users={users}
-                    memberIds={memberIds}
-                    projectId={projectId}
-                    onAdd={(member) => { onMemberAdded(member); }}
-                    onClose={() => setShowPicker(false)}
-                  />
-                )}
-              </div>
-            )}
+            <div style={{ position: 'relative' }}>
+              <Button variant="ghost" size="sm" icon={<Icon.Users />} onClick={() => setShowPanel((v) => !v)}>
+                Members
+              </Button>
+              {showPanel && (
+                <MemberPanel
+                  users={users}
+                  members={members}
+                  memberIds={memberIds}
+                  ownerId={project.ownerId}
+                  projectId={projectId}
+                  isAdmin={isProjectAdmin}
+                  onAdd={(member) => onMemberAdded(member)}
+                  onRemove={(userId) => onMemberRemoved(userId)}
+                  onClose={() => setShowPanel(false)}
+                />
+              )}
+            </div>
             <div style={{ width: 1, height: 22, background: 'var(--border)' }} />
-            <Button variant="secondary" size="sm" icon={<Icon.Filter />}>Filter</Button>
             <div className="tabs">
               <button className={`tabs__btn${view === 'board' ? ' tabs__btn--active' : ''}`} onClick={() => setView('board')}>
                 <Icon.Board /> Board
@@ -216,7 +217,7 @@ export function ProjectScreen({ projectId, tasks = [], setTasks, projects = [], 
       </div>
 
       {view === 'board'
-        ? <KanbanBoard tasks={projectTasks} setTasks={setTasks} openTask={openTask} findUser={findUser} />
+        ? <KanbanBoard tasks={projectTasks} onMoveTask={moveTask} openTask={openTask} findUser={findUser} />
         : <TaskList    tasks={projectTasks} openTask={openTask} findUser={findUser} />}
 
       {showCreateTask && (
@@ -232,31 +233,36 @@ export function ProjectScreen({ projectId, tasks = [], setTasks, projects = [], 
   );
 }
 
-export function KanbanBoard({ tasks, setTasks, openTask, findUser }) {
+export function KanbanBoard({ tasks, onMoveTask, openTask, findUser }) {
   const [draggingId, setDraggingId] = React.useState(null);
   const [hoverCol, setHoverCol]     = React.useState(null);
 
+  const draggingTask = tasks.find((t) => t.id === draggingId);
+  const draggingRank = draggingTask ? STATUS_ORDER[draggingTask.status] : -1;
+  const canDropIn = (colKey) => draggingRank < 0 || STATUS_ORDER[colKey] >= draggingRank;
+
   const onDragStart = (e, id) => { setDraggingId(id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); };
   const onDragEnd   = () => { setDraggingId(null); setHoverCol(null); };
-  const onDragOver  = (e, col) => { e.preventDefault(); setHoverCol(col); };
+  const onDragOver  = (e, col) => { if (!canDropIn(col)) return; e.preventDefault(); setHoverCol(col); };
   const onDragLeave = (col) => { if (hoverCol === col) setHoverCol(null); };
   const onDrop      = (e, col) => {
     e.preventDefault();
     const id = e.dataTransfer.getData('text/plain') || draggingId;
-    if (!id) return;
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: col } : t)));
     setHoverCol(null);
     setDraggingId(null);
+    if (id && canDropIn(col)) onMoveTask(id, col);
   };
 
   return (
     <div className="kanban">
       {COLUMNS.map((col) => {
         const items = tasks.filter((t) => t.status === col.key);
+        const blocked = draggingId && !canDropIn(col.key);
         return (
           <div
             key={col.key}
             className={`kcol${hoverCol === col.key ? ' kcol--drag-over' : ''}`}
+            style={blocked ? { opacity: 0.45 } : undefined}
             onDragOver={(e) => onDragOver(e, col.key)}
             onDragLeave={() => onDragLeave(col.key)}
             onDrop={(e) => onDrop(e, col.key)}
@@ -264,7 +270,6 @@ export function KanbanBoard({ tasks, setTasks, openTask, findUser }) {
             <div className="kcol__head">
               <span className="kcol__title">{col.title}</span>
               <span className="kcol__count">{items.length}</span>
-              <button className="kcol__add" title="Add task"><Icon.Plus /></button>
             </div>
             <div className="kcol__list">
               {items.length === 0 && (
@@ -297,11 +302,6 @@ export function TaskCard({ task, dragging, onClick, onDragStart, onDragEnd, find
   return (
     <div className={`kcard${dragging ? ' dragging' : ''}`} draggable onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={onClick}>
       <div className="kcard__title">{task.title}</div>
-      {task.labels?.length > 0 && (
-        <div className="row gap-4" style={{ flexWrap: 'wrap' }}>
-          {task.labels.map((l) => <Badge key={l} tone="primary" outline>{l}</Badge>)}
-        </div>
-      )}
       <div className="kcard__foot">
         <div className="row gap-8">
           <span className="kcard__key mono">{task.key}</span>

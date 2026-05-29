@@ -1,12 +1,14 @@
 import TaskRepository from '../models/taskRepo.js';
+import ProjectRepository from '../models/projectRepo.js';
 import { AppError } from '../utils/AppError.js';
 
 export default class TaskService {
     constructor() {
         this.taskRepo = new TaskRepository();
+        this.projectRepo = new ProjectRepository();
     }
 
-    async getAllTasks(userId, role, filters) {
+    async getAllTasks(userId, filters) {
         return await this.taskRepo.findTasksByUserId(userId, filters);
     }
 
@@ -22,8 +24,12 @@ export default class TaskService {
     }
 
     async createTask(data, userId) {
-        const isMember = await this.taskRepo.checkMembership(data.projectId, userId);
-        if (!isMember) throw new AppError('You are not a member of this project', 403);
+        // Only the project admin (owner) can create tasks
+        const ownerId = await this.projectRepo.getOwnerIdByProjectId(data.projectId);
+        if (!ownerId) throw new AppError('Project not found', 404);
+        if (ownerId !== userId) {
+            throw new AppError('Only the project admin (creator) can create tasks', 403);
+        }
 
         if (data.assignee) {
             const assigneeIsMember = await this.taskRepo.checkMembership(data.projectId, data.assignee);
@@ -33,24 +39,37 @@ export default class TaskService {
         return await this.taskRepo.createTask({ ...data, reporterId: userId });
     }
 
-    async updateTask(taskId, patch, userId, role) {
+    async updateTask(taskId, patch, userId) {
         const task = await this.taskRepo.findTaskById(taskId);
         if (!task) throw new AppError('Task not found', 404);
 
-        if (role !== 'admin') {
+        // Check if the user is the project admin (owner)
+        const ownerId = await this.projectRepo.getOwnerIdByProjectId(task.projectId);
+        const isProjectAdmin = ownerId === userId;
+
+        if (!isProjectAdmin) {
+            // Members can only update tasks assigned to them
             if (task.assignee !== userId) {
-                throw new AppError('You are not authorized to update this task', 403);
+                throw new AppError('You can only update tasks assigned to you', 403);
             }
-            const allowedFields = ['status', 'description'];
+            // Members can only change the status (not title, priority, assignee, etc.)
+            const allowedFields = ['status'];
             const unauthorized = Object.keys(patch).filter(f => !allowedFields.includes(f));
             if (unauthorized.length > 0) {
-                throw new AppError('You are not authorized to update this task', 403);
+                throw new AppError('Members can only update the status of their assigned tasks', 403);
             }
         }
 
         if (patch.assignee) {
             const assigneeIsMember = await this.taskRepo.checkMembership(task.projectId, patch.assignee);
             if (!assigneeIsMember) throw new AppError('Assignee is not a member of this project', 400);
+        }
+
+        if (patch.status) {
+            const order = { todo: 0, in_progress: 1, done: 2 };
+            if (order[patch.status] < order[task.status]) {
+                throw new AppError('Status can only move forward (To Do → In Progress → Done)', 400);
+            }
         }
 
         const oldStatus = task.status;
@@ -81,11 +100,15 @@ export default class TaskService {
         return updatedTask;
     }
 
-    async deleteTask(taskId, userId, role) {
-        if (role !== 'admin') throw new AppError('Only admins can delete tasks', 403);
-
+    async deleteTask(taskId, userId) {
         const task = await this.taskRepo.findTaskById(taskId);
         if (!task) throw new AppError('Task not found', 404);
+
+        // Only the project admin (owner) can delete tasks
+        const ownerId = await this.projectRepo.getOwnerIdByProjectId(task.projectId);
+        if (ownerId !== userId) {
+            throw new AppError('Only the project admin (creator) can delete tasks', 403);
+        }
 
         await this.taskRepo.deleteTask(taskId);
     }

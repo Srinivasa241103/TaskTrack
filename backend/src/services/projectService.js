@@ -6,10 +6,10 @@ export default class ProjectService {
         this.projectRepo = new ProjectRepository();
     }
 
-    async getAllProjects(userId, role) {
-        const projects = role === 'admin'
-            ? await this.projectRepo.findAllProjects()
-            : await this.projectRepo.findProjectsByUserId(userId);
+    async getAllProjects(userId) {
+        // Every user (including project owners) only sees projects they are a member of.
+        // The project creator is auto-added as a member during creation.
+        const projects = await this.projectRepo.findProjectsByUserId(userId);
 
         if (projects.length === 0) {
             return [];
@@ -33,21 +33,26 @@ export default class ProjectService {
             });
         }
 
-        return projects.map(p => ({
-            id: p.id,
-            name: p.name,
-            key: p.key,
-            description: p.description,
-            color: p.color,
-            ownerId: p.ownerId,
-            createdAt: p.createdAt,
-            updatedAt: p.updatedAt,
-            progress: {
-                total: parseInt(p.total_tasks) || 0,
-                done: parseInt(p.done_tasks) || 0,
-            },
-            members: membersByProject[p.id] || [],
-        }));
+        return projects.map(p => {
+            const members = membersByProject[p.id] || [];
+            const owner = members.find(m => m.id === p.ownerId);
+            return {
+                id: p.id,
+                name: p.name,
+                key: p.key,
+                description: p.description,
+                color: p.color,
+                ownerId: p.ownerId,
+                ownerName: owner?.name ?? null,
+                createdAt: p.createdAt,
+                updatedAt: p.updatedAt,
+                progress: {
+                    total: parseInt(p.total_tasks) || 0,
+                    done: parseInt(p.done_tasks) || 0,
+                },
+                members,
+            };
+        });
     }
 
     async addMember(projectId, userId) {
@@ -56,15 +61,23 @@ export default class ProjectService {
         return member;
     }
 
+    async removeMember(projectId, userId) {
+        const member = await this.projectRepo.removeProjectMember(projectId, userId);
+        if (!member) throw new AppError('User is not a member of this project', 404);
+        return member;
+    }
     async createProject(data, userId) {
-        const project = await this.projectRepo.createProject(data, userId).catch(err => {
-            if (err.code === '23505') {
-                throw new AppError(`Project key '${data.key}' is already in use`, 409);
-            }
-            throw err;
-        });
+        const project = await this.projectRepo.createProject(data, userId);
 
         const members = await this.projectRepo.getProjectMembers(project.id);
+        const memberList = members.map(m => ({
+            id: m.id,
+            name: m.name,
+            initials: m.initials,
+            avatarColor: m.avatarColor,
+            role: m.role,
+        }));
+        const owner = memberList.find(m => m.id === project.ownerId);
 
         return {
             id: project.id,
@@ -73,16 +86,11 @@ export default class ProjectService {
             description: project.description,
             color: project.color,
             ownerId: project.ownerId,
+            ownerName: owner?.name ?? null,
             createdAt: project.createdAt,
             updatedAt: project.updatedAt,
             progress: { total: 0, done: 0 },
-            members: members.map(m => ({
-                id: m.id,
-                name: m.name,
-                initials: m.initials,
-                avatarColor: m.avatarColor,
-                role: m.role,
-            })),
+            members: memberList,
         };
     }
 }

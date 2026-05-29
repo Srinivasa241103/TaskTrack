@@ -2,24 +2,6 @@ import pool from '../config/dbConfig.js';
 
 export default class ProjectRepository {
 
-    async findAllProjects() {
-        const query = `
-            SELECT
-                p.id, p.name, p.key, p.description, p.color,
-                p.owner_id AS "ownerId",
-                p.created_at AS "createdAt",
-                p.updated_at AS "updatedAt",
-                COUNT(t.id) AS total_tasks,
-                COUNT(t.id) FILTER (WHERE t.status = 'done') AS done_tasks
-            FROM projects p
-            LEFT JOIN tasks t ON t.project_id = p.id
-            GROUP BY p.id
-            ORDER BY p.updated_at DESC
-        `;
-        const result = await pool.query(query);
-        return result.rows;
-    }
-
     async findProjectsByUserId(userId) {
         const query = `
             SELECT
@@ -121,5 +103,28 @@ export default class ProjectRepository {
         `;
         const result = await pool.query(query, [projectId, userId]);
         return result.rows[0]?.member ?? null;
+    }
+
+    async removeProjectMember(projectId, userId) {
+        const query = `
+            DELETE FROM project_members
+            WHERE project_id = $1 AND user_id = $2
+            RETURNING (
+                SELECT row_to_json(u) FROM (
+                    SELECT u.id, u.name, u.initials,
+                           avatar_color AS "avatarColor", role
+                    FROM users WHERE id = $2
+                ) u) AS member
+        `;
+        const result = await pool.query(query, [projectId, userId]);
+        return result.rows[0] ?? null;
+    }
+
+    async getOwnerIdByProjectId(projectId) {
+        const query = `
+            SELECT owner_id FROM projects WHERE id = $1
+        `;
+        const result = await pool.query(query, [projectId]);
+        return result.rows[0]?.owner_id ?? null;
     }
 }

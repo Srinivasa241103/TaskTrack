@@ -8,9 +8,9 @@ class TaskController {
 
     getTasks = async (req, res) => {
         try {
-            const { userId, role } = req.user;
+            const { userId } = req.user;
             const { projectId, assignee, status, priority } = req.query;
-            const tasks = await this.taskService.getAllTasks(userId, role, { projectId, assignee, status, priority });
+            const tasks = await this.taskService.getAllTasks(userId, { projectId, assignee, status, priority });
             return res.status(200).json({
                 success: true,
                 message: 'Tasks fetched successfully',
@@ -57,7 +57,15 @@ class TaskController {
             if (status && !['todo', 'in_progress', 'done'].includes(status)) {
                 return res.status(400).json({ success: false, message: 'Invalid status. Must be todo, in_progress, or done' });
             }
-
+            if (due) {
+                const dueD = new Date(due);
+                const now = new Date();
+                now.setHours(0, 0, 0, 0);
+                if (dueD < now) {
+                    return res.status(400).json({ success: false, message: 'Due date cannot be in the past' });
+                }
+            }
+            // Authorization (project ownership) is handled inside taskService.createTask
             const task = await this.taskService.createTask(
                 { title: title.trim(), projectId, description, assignee, priority, due, labels, status },
                 userId
@@ -76,7 +84,7 @@ class TaskController {
 
     updateTask = async (req, res) => {
         try {
-            const { userId, role } = req.user;
+            const { userId } = req.user;
             const { id } = req.params;
             const { title, description, status, priority, assignee, due, labels } = req.body;
 
@@ -96,11 +104,12 @@ class TaskController {
                 return res.status(400).json({ success: false, message: 'Invalid priority. Must be Critical, Urgent, or Required' });
             }
 
-            const task = await this.taskService.updateTask(id, patch, userId, role);
+            // Authorization (project ownership vs member) is handled inside taskService.updateTask
+            const updatedTask = await this.taskService.updateTask(id, patch, userId);
             return res.status(200).json({
                 success: true,
                 message: 'Task updated successfully',
-                data: { task },
+                data: { task: updatedTask },
             });
         } catch (err) {
             const status = err instanceof AppError ? err.statusCode : 500;
@@ -111,9 +120,10 @@ class TaskController {
 
     deleteTask = async (req, res) => {
         try {
-            const { userId, role } = req.user;
+            const { userId } = req.user;
             const { id } = req.params;
-            await this.taskService.deleteTask(id, userId, role);
+            // Authorization (project ownership) is handled inside taskService.deleteTask
+            await this.taskService.deleteTask(id, userId);
             return res.status(200).json({
                 success: true,
                 message: 'Task deleted successfully',

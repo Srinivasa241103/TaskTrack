@@ -8,19 +8,33 @@ import { PriorityIcon } from '../components/PriorityIcon.jsx';
 import { TODAY, formatDue } from '../utils/dateUtils.js';
 import { CreateTaskModal } from './CreateTaskModal.jsx';
 
-export function Dashboard({ tasks = [], setTasks, projects = [], users = [], currentUserId, setRoute, openTask }) {
+export function Dashboard({ dashboard = null, tasks = [], setTasks, projects = [], users = [], currentUserId, setRoute, openTask }) {
   const [showCreateTask, setShowCreateTask] = React.useState(false);
-  const findUser    = (id) => users.find((u) => u.id === id);
+  const findUser = (id) => users.find((u) => u.id === id);
   const findProject = (id) => projects.find((p) => p.id === id);
 
-  const me    = findUser(currentUserId);
-  const mine  = tasks.filter((t) => t.assignee === currentUserId);
-  const done  = mine.filter((t) => t.status === 'done');
+  const me = findUser(currentUserId);
+  const mine = tasks.filter((t) => t.assignee === currentUserId);
   const overdue = mine.filter((t) => t.status !== 'done' && t.due && new Date(t.due) < TODAY);
   const priority = mine
     .filter((t) => t.status !== 'done')
     .sort((a, b) => new Date(a.due) - new Date(b.due))
     .slice(0, 6);
+
+  const totalTasks = dashboard?.totalTasks ?? tasks.length;
+  const myTasks = dashboard?.myTasks ?? mine.length;
+  const overdueCount = dashboard?.overdueTasks ?? overdue.length;
+  const byStatus = dashboard?.tasksByStatus ?? {
+    todo: tasks.filter((t) => t.status === 'todo').length,
+    in_progress: tasks.filter((t) => t.status === 'in_progress').length,
+    done: tasks.filter((t) => t.status === 'done').length,
+  };
+  const perUserRaw = dashboard?.tasksPerUser ?? Object.entries(
+    tasks.reduce((acc, t) => { if (t.assignee) acc[t.assignee] = (acc[t.assignee] || 0) + 1; return acc; }, {})
+  ).map(([assigneeId, count]) => ({ assigneeId, count }));
+  const perUser = perUserRaw
+    .map((row) => ({ ...row, user: findUser(row.assigneeId) }))
+    .sort((a, b) => b.count - a.count);
 
   const hour = new Date().getHours();
   const greeting = hour < 5 ? 'Up late' : hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -35,20 +49,16 @@ export function Dashboard({ tasks = [], setTasks, projects = [], users = [], cur
             {mine.length} open task{mine.length !== 1 ? 's' : ''} across {new Set(mine.map((t) => t.projectId)).size} project{new Set(mine.map((t) => t.projectId)).size !== 1 ? 's' : ''}
           </div>
         </div>
-        <div className="row gap-8">
-          <Button variant="secondary" size="sm" icon={<Icon.Cal />}>This week</Button>
-          <Button variant="primary"   size="sm" icon={<Icon.Plus />} onClick={() => setShowCreateTask(true)}>New task</Button>
-        </div>
+
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
-        <Metric label="Assigned to me"        value={mine.length}    sub={`${mine.filter((t) => t.status === 'in_progress').length} in progress`} />
-        <Metric label="Completed this month"  value={done.length}    sub="Completed tasks" tone="success" />
-        <Metric label="Overdue"               value={overdue.length} sub={overdue.length ? 'Needs your attention' : 'All caught up'} tone={overdue.length ? 'danger' : 'success'} />
+        <Metric label="Total tasks" value={totalTasks} sub="Across your projects" />
+        <Metric label="Assigned to me" value={myTasks} sub={`${mine.filter((t) => t.status === 'in_progress').length} in progress`} />
+        <Metric label="Overdue" value={overdueCount} sub={overdueCount ? 'Needs your attention' : 'All caught up'} tone={overdueCount ? 'danger' : 'success'} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16 }}>
-        {/* Priority tasks table */}
         <div className="card">
           <div className="card__head">
             <div className="row gap-8">
@@ -73,7 +83,7 @@ export function Dashboard({ tasks = [], setTasks, projects = [], users = [], cur
               </thead>
               <tbody>
                 {priority.map((t) => {
-                  const p   = findProject(t.projectId);
+                  const p = findProject(t.projectId);
                   const due = formatDue(t.due);
                   return (
                     <tr key={t.id} onClick={() => openTask(t.id)}>
@@ -107,7 +117,6 @@ export function Dashboard({ tasks = [], setTasks, projects = [], users = [], cur
         </div>
 
         <div className="col gap-16">
-          {/* Active projects */}
           <div className="card">
             <div className="card__head">
               <span className="h2">Active projects</span>
@@ -142,11 +151,49 @@ export function Dashboard({ tasks = [], setTasks, projects = [], users = [], cur
             </div>
           </div>
 
-          {/* Recent activity */}
           <div className="card">
-            <div className="card__head"><span className="h2">Recent activity</span></div>
-            <div className="card__body">
-              <div className="empty"><div className="small">Activity will appear here.</div></div>
+            <div className="card__head"><span className="h2">Tasks by status</span></div>
+            <div className="card__body col gap-12">
+              {[
+                { key: 'todo', label: 'To Do' },
+                { key: 'in_progress', label: 'In Progress' },
+                { key: 'done', label: 'Done' },
+              ].map(({ key, label }) => {
+                const count = byStatus[key] ?? 0;
+                const pct = totalTasks > 0 ? Math.round((count / totalTasks) * 100) : 0;
+                return (
+                  <div key={key} className="col" style={{ gap: 4 }}>
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 13 }}>{label}</span>
+                      <span className="small mono">{count}</span>
+                    </div>
+                    <div style={{ height: 3, background: 'var(--surface-sunken)', borderRadius: 99 }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary)', borderRadius: 99 }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card__head"><span className="h2">Tasks per user</span></div>
+            <div className="card__body col gap-10">
+              {perUser.length === 0 ? (
+                <div className="small" style={{ color: 'var(--ink-4)' }}>No assigned tasks yet.</div>
+              ) : (
+                perUser.map((row) => (
+                  <div key={row.assigneeId} className="row gap-8" style={{ justifyContent: 'space-between' }}>
+                    <span className="row gap-8" style={{ minWidth: 0 }}>
+                      {row.user && <Avatar user={row.user} size="sm" />}
+                      <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.user?.name ?? 'Unknown user'}
+                      </span>
+                    </span>
+                    <span className="small mono">{row.count}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

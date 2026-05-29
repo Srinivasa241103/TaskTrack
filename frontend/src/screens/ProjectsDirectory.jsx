@@ -139,7 +139,7 @@ function CreateProjectModal({ onClose, onCreated }) {
   );
 }
 
-export function ProjectsDirectory({ projects = [], setRoute, isAdmin, onProjectCreated }) {
+export function ProjectsDirectory({ projects = [], setRoute, onProjectCreated }) {
   const [showCreate, setShowCreate] = React.useState(false);
 
   const handleCreated = (project) => {
@@ -150,23 +150,16 @@ export function ProjectsDirectory({ projects = [], setRoute, isAdmin, onProjectC
   return (
     <div className="page" data-screen-label="Projects">
       <div className="page-header">
-        <div>]
+        <div>
           <div className="h1">Projects</div>
           <div className="page-header__meta">
             {projects.length} active project{projects.length !== 1 ? 's' : ''} across your workspace
           </div>
         </div>
         <div className="row gap-8">
-          <Button variant="secondary" size="sm" icon={<Icon.Filter />}>Filter</Button>
-          <div className="tabs">
-            <button className="tabs__btn tabs__btn--active"><Icon.Board /> Grid</button>
-            <button className="tabs__btn"><Icon.List /> List</button>
-          </div>
-          {isAdmin && (
-            <Button variant="primary" size="sm" icon={<Icon.Plus />} onClick={() => setShowCreate(true)}>
-              New project
-            </Button>
-          )}
+          <Button variant="primary" size="sm" icon={<Icon.Plus />} onClick={() => setShowCreate(true)}>
+            New project
+          </Button>
         </div>
       </div>
 
@@ -183,17 +176,14 @@ export function ProjectsDirectory({ projects = [], setRoute, isAdmin, onProjectC
             const total = p.progress?.total ?? 0;
             const doneCount = p.progress?.done ?? 0;
             const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
-            // API returns avatarColor; Avatar component expects color
             const members = (p.members ?? []).map((m) => ({ ...m, color: m.avatarColor ?? m.color }));
+            const ownerName = p.ownerName ?? (p.members ?? []).find((m) => m.id === p.ownerId)?.name;
             return (
               <div key={p.id} className="project-card" onClick={() => setRoute(`project:${p.id}`)}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <span style={{ borderRadius: 6, background: p.color, color: '#fff', display: 'inline-flex', alignItems: 'center', padding: '4px 10px', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                     {p.key}
                   </span>
-                  <button onClick={(e) => e.stopPropagation()} style={{ background: 'transparent', border: 0, color: 'var(--ink-3)', cursor: 'pointer', padding: 4 }}>
-                    <Icon.More />
-                  </button>
                 </div>
                 <div className="col gap-4">
                   <div className="project-card__title">{p.name}</div>
@@ -208,8 +198,13 @@ export function ProjectsDirectory({ projects = [], setRoute, isAdmin, onProjectC
                     <div className="project-card__progress-fill" style={{ width: `${pct}%`, background: p.color }} />
                   </div>
                 </div>
-                <div className="project-card__foot">
+                <div className="project-card__foot" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <AvatarStack users={members} />
+                  {ownerName && (
+                    <span className="small" style={{ color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      Owner · {ownerName}
+                    </span>
+                  )}
                 </div>
               </div>
             );

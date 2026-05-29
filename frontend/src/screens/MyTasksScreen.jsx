@@ -1,6 +1,4 @@
-import { Icon } from '../components/Icons.jsx';
 import { Badge } from '../components/Badge.jsx';
-import { Button } from '../components/Button.jsx';
 import { StatusBadge } from '../components/Badge.jsx';
 import { PriorityIcon } from '../components/PriorityIcon.jsx';
 import { TODAY, formatDue } from '../utils/dateUtils.js';
@@ -22,10 +20,6 @@ export function MyTasksScreen({ tasks = [], projects = [], currentUserId, openTa
         <div>
           <div className="h1">My tasks</div>
           <div className="page-header__meta">{mine.length} task{mine.length !== 1 ? 's' : ''} assigned to you</div>
-        </div>
-        <div className="row gap-8">
-          <Button variant="secondary" size="sm" icon={<Icon.Filter />}>Filter</Button>
-          <Button variant="primary"   size="sm" icon={<Icon.Plus />}>Create</Button>
         </div>
       </div>
 
