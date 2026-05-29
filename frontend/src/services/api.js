@@ -1,10 +1,20 @@
 const BASE = import.meta.env.VITE_SERVER_URL || '/api/v1';
 
 async function request(method, path, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  try {
+    const user = JSON.parse(localStorage.getItem('plot_user'));
+    if (user && user.accessToken) {
+      headers['Authorization'] = `Bearer ${user.accessToken}`;
+    }
+  } catch (e) {
+    // Ignore parse errors
+  }
+
   const res = await fetch(`${BASE}${path}`, {
     method,
-    credentials: 'include', // send httpOnly cookies on every request
-    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // send httpOnly cookies on every request (fallback)
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
 

@@ -111,7 +111,7 @@ export default class ProjectRepository {
             WHERE project_id = $1 AND user_id = $2
             RETURNING (
                 SELECT row_to_json(u) FROM (
-                    SELECT u.id, u.name, u.initials,
+                    SELECT id, name, initials,
                            avatar_color AS "avatarColor", role
                     FROM users WHERE id = $2
                 ) u) AS member
