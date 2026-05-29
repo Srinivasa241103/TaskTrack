@@ -22,12 +22,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.use("/api/v1", healthRoutes);
-app.use("/api/v1/auth", userRoutes);
-app.use("/api/v1/projects", projectRoutes);
-app.use("/api/v1/users", usersRoutes);
-app.use("/api/v1/tasks", taskRoutes);
-app.use("/api/v1/dashboard", dashboardRoutes);
+app.use("/", healthRoutes);
+app.use("/auth", userRoutes);
+app.use("/projects", projectRoutes);
+app.use("/users", usersRoutes);
+app.use("/tasks", taskRoutes);
+app.use("/dashboard", dashboardRoutes);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
