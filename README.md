@@ -3,8 +3,6 @@
 A collaborative team task management web app. Users sign up, create projects, invite
 members, assign tasks, and track progress on a Kanban board — a simplified Trello/Asana.
 
-**Live app:** `<ADD_YOUR_RAILWAY_URL_HERE>`
-**Repository:** `<ADD_YOUR_GITHUB_URL_HERE>`
 
 ---
 
